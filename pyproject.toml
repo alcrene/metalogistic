@@ -8,10 +8,10 @@ readme = "README.md"
 repository = "https://github.com/tadamcz/metalogistic"
 
 [tool.poetry.dependencies]
-python = "3.8"
-numpy = "^1.22.3"
-scipy = "^1.8.0"
-matplotlib = "^3.5.1"
+python = "^3.8"
+numpy = ""
+scipy = ""
+matplotlib = ""
 
 [tool.poetry.dev-dependencies]
 
