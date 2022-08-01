@@ -5,9 +5,9 @@ def tuple_to_dict(tuple):
 	return {'cdf_ps': tuple[0], 'cdf_xs': tuple[1], 'lbound': tuple[2], 'ubound': tuple[3]}
 
 
-def is_list_like(object):
-	return isinstance(object, list) or (isinstance(object,np.ndarray) and object.ndim==1)
+def is_list_like(obj):
+	return isinstance(obj, list) or (isinstance(obj,np.ndarray) and obj.ndim==1)
 
 
-def is_numeric(object):
-	return isinstance(object, (float, int, np.int32, np.int64)) or (isinstance(object,np.ndarray) and object.ndim==0)
+def is_numeric(obj):
+	return isinstance(obj, (float, int, np.int32, np.int64)) or (isinstance(obj,np.ndarray) and obj.ndim==0)

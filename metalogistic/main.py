@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import linalg
 from scipy import optimize
 from scipy import stats
 import matplotlib.pyplot as plt
@@ -129,10 +130,16 @@ class _MetaLogisticMonoFit(stats.rv_continuous):
 		"""
 		Constructs the a-vector by linear least squares, as defined in Keelin 2016, Equation 7 (unbounded case), Equation 12 (semi-bounded and bounded cases).
 		"""
-		left = np.linalg.inv(np.dot(self.Y_matrix.T, self.Y_matrix))
-		right = np.dot(self.Y_matrix.T, self.z_vec)
+		gram = np.dot(self.Y_matrix.T, self.Y_matrix)
+		Yz = np.dot(self.Y_matrix.T, self.z_vec)
 
-		self.a_vector = np.dot(left, right)
+		with warnings.catch_warnings():
+			# With a lot of terms, the solving the matrix equation triggers warnings of numerical imprecision.
+			# But these are only on the higher order terms, which while not exact, still help improve the fit.
+			# So we silence those warnings, to avoid them being misinterpreted as indicating that the number of terms
+			# can be reduced without loss of precision, which is not always the case.
+			warnings.filterwarnings("ignore", category=linalg.LinAlgWarning)
+			self.a_vector = linalg.solve(gram, Yz, assume_a="sym")
 
 	def fit_numeric_least_squares(self, feasibility_method, avoid_extreme_steepness=True):
 		"""
@@ -315,8 +322,7 @@ class _MetaLogisticMonoFit(stats.rv_continuous):
 
 	def mean_square_error(self):
 		ps_on_fitted_cdf = self.cdf(self.cdf_xs)
-		sum_sq_error = np.sum((self.cdf_ps - ps_on_fitted_cdf) ** 2)
-		return sum_sq_error / self.cdf_len
+		return np.mean((self.cdf_ps - ps_on_fitted_cdf) ** 2)
 
 	def infeasibility_score_quantile_sum_negative_increments(self):
 		check_ps_from = 0.001
@@ -455,25 +461,23 @@ class _MetaLogisticMonoFit(stats.rv_continuous):
 		# To make this method easier to read if following along with the paper, I subtract 1 when
 		# subscripting the self.a_vector
 
-		# The series of quantile functions. Although we only return the last result in the series, the entire series is necessary to construct it
+		# The series of quantile functions. We increment terms until the number of terms reaches `term`
 		ln_p_term = np.log(probability / (1 - probability))
 		p05_term = probability - 0.5
-		quantile_functions = {2: self.a_vector[1 - 1] + self.a_vector[2 - 1] * ln_p_term}
 
-		if self.term > 2:
-			quantile_functions[3] = quantile_functions[2] + self.a_vector[3 - 1] * p05_term * ln_p_term
-		if self.term > 3:
-			quantile_functions[4] = quantile_functions[3] + self.a_vector[4 - 1] * p05_term
+		quantile_function = self.a_vector[1 - 1] + self.a_vector[2 - 1] * ln_p_term
 
-		if self.term > 4:
-			for n in range(5, self.term + 1):
-				if n % 2 != 0:
-					quantile_functions[n] = quantile_functions[n - 1] + self.a_vector[n - 1] * p05_term ** ((n - 1) / 2)
+		if self.term >= 3:
+			quantile_function += self.a_vector[3 - 1] * p05_term * ln_p_term
+		if self.term >= 4:
+			quantile_function += self.a_vector[4 - 1] * p05_term
 
-				if n % 2 == 0:
-					quantile_functions[n] = quantile_functions[n - 1] + self.a_vector[n - 1] * p05_term ** (n / 2 - 1) * ln_p_term
+		for n in range(5, self.term + 1):
+			if n % 2 != 0:
+				quantile_function += self.a_vector[n - 1] * p05_term ** ((n - 1) / 2)
 
-		quantile_function = quantile_functions[self.term]
+			if n % 2 == 0:
+				quantile_function += self.a_vector[n - 1] * p05_term ** (n / 2 - 1) * ln_p_term
 
 		if not force_unbounded:
 			if self.boundedness == 'lower':
