@@ -47,11 +47,9 @@ class _MetaLogisticMonoFit(stats.rv_continuous):
 
 
 		if lbound == -np.inf:
-			print("Infinite lower bound was ignored")
 			lbound = None
 
 		if ubound == np.inf:
-			print("Infinite upper bound was ignored")
 			ubound = None
 
 		if lbound is None and ubound is None:
